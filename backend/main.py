@@ -12,6 +12,9 @@ from pathlib import Path
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
+# FHIR mapping import
+from .fhir_mapper import map_client_to_fhir_patient
+
 # --- Configuration ---
 # In a real app, these should come from environment variables
 SECRET_KEY = "a_very_secret_key_that_should_be_in_env_vars"
@@ -279,6 +282,23 @@ async def create_client(client: Client, current_user: User = Depends(require_rol
             raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/v1/clients/{client_id}/fhir")
+async def get_client_as_fhir_patient(client_id: int, current_user: User = Depends(require_roles([UserRole.MANAGER, UserRole.ADMIN]))):
+    """
+    Fetches a client's data and returns it as a FHIR Patient resource.
+    """
+    async with app.state.pool.acquire() as connection:
+        client_row = await connection.fetchrow("SELECT * FROM clients WHERE client_id = $1", client_id)
+        if not client_row:
+            raise HTTPException(status_code=404, detail="Client not found")
+
+        # Use the mapper to convert to a FHIR resource
+        fhir_patient = map_client_to_fhir_patient(dict(client_row))
+
+        # The fhir.resources models are Pydantic-based, so FastAPI can serialize them automatically
+        return fhir_patient
+
+
 @app.get("/api/v1/clients/{client_id}/assessments", response_model=List[AssessmentInDB])
 async def get_assessments_for_client(client_id: int, current_user: User = Depends(require_roles([UserRole.ASSESSOR, UserRole.MANAGER, UserRole.ADMIN]))):
     async with app.state.pool.acquire() as connection:
@@ -387,6 +407,27 @@ async def update_assistive_device_status(device_id: int, status_update: StatusUp
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+
+from .gp_connect_client import fetch_patient_summary
+
+# --- External Integrations ---
+
+class NHSNumberRequest(BaseModel):
+    nhs_number: str
+
+@app.post("/api/v1/gp-connect/fetch-summary")
+async def gp_connect_fetch(
+    request: NHSNumberRequest,
+    current_user: User = Depends(require_roles([UserRole.MANAGER, UserRole.ADMIN]))
+):
+    """
+    Endpoint to simulate fetching a patient summary from GP Connect.
+    """
+    # In a real app, you might look up the client's NHS number first.
+    # Here, we just pass the number through to the stub.
+    fhir_patient = fetch_patient_summary(request.nhs_number)
+    return fhir_patient
 
 
 # --- Predictive Analytics Endpoints ---

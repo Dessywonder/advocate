@@ -8,3 +8,6 @@ python-jose[cryptography]
 # Testing
 pytest
 pytest-asyncio
+
+# Interoperability
+fhir.resources

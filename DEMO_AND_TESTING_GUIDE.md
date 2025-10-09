@@ -350,6 +350,38 @@ This test verifies the provider management and outcome tracking functionalities.
 
 This completes the test of the advanced case management features.
 
+---
+
+## Part 8: Interoperability and FHIR Test
+
+This test verifies the system's ability to expose its own data in the FHIR format and to consume data from an external FHIR-compliant source (simulated). It assumes you are logged in as a manager (`manager@care.com`).
+
+### Step 1: Test Exposing Data as FHIR
+
+1.  **Get a Client's FHIR Representation:**
+    *   Using a tool like Postman, Insomnia, or `curl`, make a `GET` request to the following URL. You will need to include the authentication token for the manager user, which can be found in your browser's local storage after logging in.
+    *   **URL:** `http://localhost:8000/api/v1/clients/101/fhir`
+    *   **Headers:** `Authorization: Bearer <your_auth_token>`
+
+2.  **Verify the FHIR Output:**
+    *   The response should be a JSON object that conforms to the FHIR `Patient` resource standard.
+    *   It should contain fields like `resourceType: "Patient"`, `id: "101"`, and an `identifier` that includes the client's internal ID.
+
+### Step 2: Test Consuming Data from GP Connect (Simulated)
+
+1.  **Navigate to a Client's Page:**
+    *   In the web app, go to the **"Assessments"** page and click on a client ID (e.g., `101`) to go to their details page.
+
+2.  **Fetch the GP Summary:**
+    *   On the Client Details page, find the "GP Connect Summary" section.
+    *   Click the **"Fetch GP Summary"** button.
+
+3.  **Verify the Displayed Data:**
+    *   The section should update to display the patient information from our GP Connect stub.
+    *   You should see the name "John Jonathan Smith", the date of birth "1955-01-01", and the address from the sample data.
+
+This completes the test of the interoperability features, demonstrating that the platform can both share and consume data using the FHIR standard.
+
 ### Step 4: Verify Stricter Permissions
 
 1.  **Log in as an Assessor:**
