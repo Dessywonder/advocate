@@ -303,6 +303,53 @@ This test verifies that users can log in and that their access to different part
 
 This completes the test of the authentication and role-based access control systems.
 
+---
+
+## Part 7: Advanced Case Management Test (Providers & Outcomes)
+
+This test verifies the provider management and outcome tracking functionalities. It assumes you are logged in as a manager (`manager@care.com`).
+
+### Step 1: Manage Providers
+
+1.  **Navigate to the Providers Page:**
+    *   In the header, click the **"Providers"** link.
+    *   You should see the "Provider Management" page with a list of the sample providers.
+
+2.  **Add a New Provider:**
+    *   In the "Add New Provider" form, enter:
+        *   Provider Name: `Wellness Solutions Ltd.`
+        *   Services Offered: `Mental Health Support, Counseling`
+    *   Click **"Add Provider"**.
+    *   The new provider should appear in the list below.
+
+### Step 2: Assign a Provider to a Care Plan
+
+1.  **Navigate to a Client's Page:**
+    *   Go to the **"Assessments"** page and click on a client ID (e.g., `101`) to go to their details page.
+
+2.  **Assign the Provider:**
+    *   Find a care plan that is "Not Assigned".
+    *   In the dropdown menu, select the new provider: `Wellness Solutions Ltd.`.
+    *   Click the **"Assign Provider"** button.
+    *   The care plan's provider status should update to show the new provider's name.
+
+### Step 3: Record an Outcome
+
+1.  **Log in as an Assessor:**
+    *   Log out from the manager account and log back in as an assessor (`assessor@care.com`).
+
+2.  **Navigate to the Same Client Page:**
+    *   Go to the **"Assessments"** page and click on the same client ID (`101`).
+
+3.  **Record an Outcome:**
+    *   Find a specific goal/action in the care plan (e.g., `Improve mobility within the home.`).
+    *   Click the **"Record Outcome"** button next to it. A text box will appear.
+    *   In the text box, type: `Client reports feeling more confident moving around the house after first PT session.`
+    *   Click **"Save Outcome"**.
+    *   The new outcome should appear directly below the goal.
+
+This completes the test of the advanced case management features.
+
 ### Step 4: Verify Stricter Permissions
 
 1.  **Log in as an Assessor:**

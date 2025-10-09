@@ -441,6 +441,71 @@ async def get_predictions(current_user: User = Depends(require_roles([UserRole.M
     )
 
 
+# --- Provider & Outcome Models and Endpoints ---
+
+class Provider(BaseModel):
+    provider_id: int
+    name: str
+    pamms_id: Optional[str] = None
+    services_offered: Optional[str] = None
+    contact_details: Optional[Dict] = None
+
+class ProviderCreate(BaseModel):
+    name: str
+    pamms_id: Optional[str] = None
+    services_offered: Optional[str] = None
+    contact_details: Optional[Dict] = None
+
+class Outcome(BaseModel):
+    outcome_id: int
+    action_id: int
+    outcome_description: str
+    recorded_by_user_id: int
+    recorded_at: datetime
+
+class OutcomeCreate(BaseModel):
+    outcome_description: str
+
+
+@app.get("/api/v1/providers", response_model=List[Provider])
+async def get_providers(current_user: User = Depends(get_current_user)):
+    async with app.state.pool.acquire() as connection:
+        rows = await connection.fetch("SELECT * FROM providers ORDER BY name")
+        return [dict(row) for row in rows]
+
+@app.post("/api/v1/providers", response_model=Provider, status_code=201)
+async def create_provider(provider_data: ProviderCreate, current_user: User = Depends(require_roles([UserRole.MANAGER, UserRole.ADMIN]))):
+    async with app.state.pool.acquire() as connection:
+        row = await connection.fetchrow(
+            """
+            INSERT INTO providers (name, pamms_id, services_offered, contact_details)
+            VALUES ($1, $2, $3, $4) RETURNING *
+            """,
+            provider_data.name, provider_data.pamms_id, provider_data.services_offered, provider_data.contact_details
+        )
+        await log_audit_event(app.state.pool, current_user.user_id, "create_provider", "provider", row['provider_id'], provider_data.dict())
+        return dict(row)
+
+@app.post("/api/v1/actions/{action_id}/outcomes", response_model=Outcome, status_code=201)
+async def record_outcome_for_action(action_id: int, outcome_data: OutcomeCreate, current_user: User = Depends(require_roles([UserRole.ASSESSOR, UserRole.MANAGER]))):
+    async with app.state.pool.acquire() as connection:
+        row = await connection.fetchrow(
+            """
+            INSERT INTO outcomes (action_id, outcome_description, recorded_by_user_id)
+            VALUES ($1, $2, $3) RETURNING *
+            """,
+            action_id, outcome_data.outcome_description, current_user.user_id
+        )
+        await log_audit_event(app.state.pool, current_user.user_id, "record_outcome", "outcome", row['outcome_id'], {"action_id": action_id, "description": outcome_data.outcome_description})
+        return dict(row)
+
+@app.get("/api/v1/actions/{action_id}/outcomes", response_model=List[Outcome])
+async def get_outcomes_for_action(action_id: int, current_user: User = Depends(get_current_user)):
+    async with app.state.pool.acquire() as connection:
+        rows = await connection.fetch("SELECT * FROM outcomes WHERE action_id = $1 ORDER BY recorded_at DESC", action_id)
+        return [dict(row) for row in rows]
+
+
 # --- Care Plan Models and Endpoints ---
 
 class CarePlanStatus(str, Enum):
@@ -477,6 +542,9 @@ class CarePlan(CarePlanBase):
     client_id: int
     created_at: datetime
     actions: List[CarePlanAction]
+
+class AssignProviderRequest(BaseModel):
+    provider_id: int
 
 @app.post("/api/v1/clients/{client_id}/careplans", response_model=CarePlan, status_code=201)
 async def create_care_plan_for_client(client_id: int, plan_data: CarePlanCreate, current_user: User = Depends(require_roles([UserRole.ASSESSOR]))):
@@ -541,3 +609,34 @@ async def get_care_plans_for_client(client_id: int, current_user: User = Depends
             full_plans.append(plan_dict)
 
         return full_plans
+
+
+@app.put("/api/v1/careplans/{care_plan_id}/assign-provider", response_model=CarePlan)
+async def assign_provider_to_care_plan(
+    care_plan_id: int,
+    request: AssignProviderRequest,
+    current_user: User = Depends(require_roles([UserRole.MANAGER, UserRole.ADMIN])),
+):
+    async with app.state.pool.acquire() as connection:
+        # Fetch the plan to make sure it exists and to return the full object
+        plan_row = await connection.fetchrow(
+            "UPDATE care_plans SET assigned_provider_id = $1 WHERE care_plan_id = $2 RETURNING *",
+            request.provider_id, care_plan_id
+        )
+        if not plan_row:
+            raise HTTPException(status_code=404, detail="Care plan not found")
+
+        await log_audit_event(
+            app.state.pool,
+            current_user.user_id,
+            action="assign_provider",
+            object_type="care_plan",
+            object_id=care_plan_id,
+            details={"provider_id": request.provider_id}
+        )
+
+        # Re-fetch the full plan with actions to return
+        actions = await connection.fetch("SELECT * FROM care_plan_actions WHERE care_plan_id = $1", care_plan_id)
+        plan_dict = dict(plan_row)
+        plan_dict['actions'] = [dict(action) for action in actions]
+        return plan_dict

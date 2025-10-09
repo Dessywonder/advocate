@@ -111,6 +111,49 @@ tr:hover {
   cursor: pointer;
 }
 
+.assign-provider-form {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #fafafa;
+  border: 1px solid #eee;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Styles for ActionItem and Outcomes */
+.action-item {
+  padding: 10px;
+  border-top: 1px solid #f0f0f0;
+}
+.outcomes-section {
+  padding-left: 20px;
+  margin-top: 10px;
+}
+.outcomes-list {
+  font-size: 14px;
+  color: #555;
+  list-style-type: square;
+}
+.record-outcome-btn {
+  font-size: 12px;
+  padding: 3px 8px;
+  margin-top: 5px;
+  background-color: #e7f3fe;
+  border-color: #bce8f1;
+}
+.outcome-form {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.outcome-form textarea {
+  width: 100%;
+  min-height: 60px;
+  box-sizing: border-box;
+}
+
 /* Audit Log Viewer Styles */
 .audit-log-container {
   margin-top: 20px;

@@ -94,3 +94,26 @@ CREATE TABLE audit_log (
     details JSONB,
     event_timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE providers (
+    provider_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    pamms_id VARCHAR(100),
+    services_offered TEXT,
+    contact_details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE outcomes (
+    outcome_id SERIAL PRIMARY KEY,
+    action_id INTEGER REFERENCES care_plan_actions(action_id) ON DELETE CASCADE,
+    outcome_description TEXT NOT NULL,
+    recorded_by_user_id INTEGER REFERENCES users(user_id),
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert a few sample providers for testing
+INSERT INTO providers (name, services_offered) VALUES
+('Helping Hands Care', 'Domiciliary Care, Live-in Care'),
+('Community Support Services', 'Reablement, Community Outreach'),
+('Future-Proof Living', 'Assistive Technology Installation, Home Adaptations');

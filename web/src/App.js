@@ -7,7 +7,8 @@ import Dashboard from './Dashboard';
 import ClientPage from './ClientPage';
 import LoginPage from './LoginPage';
 import ProtectedRoute from './ProtectedRoute';
-import RoleProtectedRoute from './RoleProtectedRoute'; // Import the new component
+import RoleProtectedRoute from './RoleProtectedRoute';
+import ProvidersPage from './ProvidersPage'; // Import the new component
 
 const API_URL = 'http://localhost:8000';
 
@@ -108,6 +109,10 @@ const AppLayout = () => {
                     {(user.role === 'coordinator' || user.role === 'manager' || user.role === 'admin') &&
                         <Link to="/assistive-tech"><button>Assistive Tech</button></Link>
                     }
+                    {/* Manager/Admin can see Providers */}
+                    {(user.role === 'manager' || user.role === 'admin') &&
+                        <Link to="/providers"><button>Providers</button></Link>
+                    }
                 </nav>
                 <div className="user-info">
                     {user && <span>Welcome, {user.role}!</span>}
@@ -148,6 +153,11 @@ function App() {
         <Route path="assistive-tech" element={
             <RoleProtectedRoute requiredRoles={['coordinator', 'manager', 'admin']}>
                 <AssistiveTech />
+            </RoleProtectedRoute>
+        } />
+        <Route path="providers" element={
+            <RoleProtectedRoute requiredRoles={['manager', 'admin']}>
+                <ProvidersPage />
             </RoleProtectedRoute>
         } />
         <Route path="client/:clientId" element={<ClientPage />} />
