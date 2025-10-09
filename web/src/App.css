@@ -102,6 +102,46 @@ tr:hover {
   flex-grow: 1;
 }
 
+.history-button {
+  margin-left: 15px;
+  padding: 2px 8px;
+  font-size: 12px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
+/* Audit Log Viewer Styles */
+.audit-log-container {
+  margin-top: 20px;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.audit-table th, .audit-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.audit-table th {
+  background-color: #f2f2f2;
+}
+
+.audit-table pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: #efefef;
+  padding: 5px;
+  border-radius: 4px;
+}
+
 /* Login Page Styles */
 .login-container {
   width: 100%;

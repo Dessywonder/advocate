@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import AuditLogViewer from './AuditLogViewer';
 
 const API_URL = 'http://localhost:8000';
 
-function CarePlan({ clientId }) {
+function CarePlan({ clientId, onShowAudit, visibleAudit }) {
     const [carePlans, setCarePlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -86,12 +87,22 @@ function CarePlan({ clientId }) {
                 <div className="care-plan-list">
                     {carePlans.map(plan => (
                         <div key={plan.care_plan_id} className="care-plan-item">
-                            <p><strong>Plan ID:</strong> {plan.care_plan_id} | <strong>Status:</strong> {plan.status} | <strong>Start Date:</strong> {plan.start_date}</p>
+                            <p>
+                                <strong>Plan ID:</strong> {plan.care_plan_id} | <strong>Status:</strong> {plan.status} | <strong>Start Date:</strong> {plan.start_date}
+                                {onShowAudit && (
+                                    <button className="history-button" onClick={() => onShowAudit('care_plan', plan.care_plan_id)}>
+                                        {visibleAudit?.type === 'care_plan' && visibleAudit?.id === plan.care_plan_id ? 'Hide' : 'Show'} History
+                                    </button>
+                                )}
+                            </p>
                             <ul>
                                 {plan.actions.map(action => (
                                     <li key={action.action_id}>{action.goal_description}</li>
                                 ))}
                             </ul>
+                            {visibleAudit?.type === 'care_plan' && visibleAudit?.id === plan.care_plan_id && (
+                                <AuditLogViewer objectType="care_plan" objectId={plan.care_plan_id} />
+                            )}
                         </div>
                     ))}
                 </div>

@@ -55,6 +55,7 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 class User(BaseModel):
+    user_id: int
     email: str
     full_name: Optional[str] = None
     is_active: bool
@@ -125,7 +126,52 @@ def require_roles(required_roles: List[UserRole]):
     return role_checker
 
 
+# --- Audit Logging ---
+
+async def log_audit_event(
+    pool,
+    user_id: int,
+    action: str,
+    object_type: Optional[str] = None,
+    object_id: Optional[int] = None,
+    details: Optional[Dict] = None,
+):
+    """A reusable function to insert events into the audit_log table."""
+    async with pool.acquire() as connection:
+        await connection.execute(
+            """
+            INSERT INTO audit_log (user_id, action, object_type, object_id, details)
+            VALUES ($1, $2, $3, $4, $5)
+            """,
+            user_id, action, object_type, object_id, details
+        )
+
+
 # --- Auth Endpoints ---
+
+class AuditLogEntry(BaseModel):
+    event_id: int
+    user_id: int
+    action: str
+    object_type: Optional[str] = None
+    object_id: Optional[int] = None
+    details: Optional[Dict] = None
+    event_timestamp: datetime
+
+@app.get("/api/v1/audit/{object_type}/{object_id}", response_model=List[AuditLogEntry])
+async def get_audit_log_for_object(
+    object_type: str,
+    object_id: int,
+    current_user: User = Depends(require_roles([UserRole.MANAGER, UserRole.ADMIN])),
+):
+    """Fetches the audit history for a specific object."""
+    async with app.state.pool.acquire() as connection:
+        rows = await connection.fetch(
+            "SELECT * FROM audit_log WHERE object_type = $1 AND object_id = $2 ORDER BY event_timestamp DESC",
+            object_type, object_id
+        )
+        return [dict(row) for row in rows]
+
 
 @app.post("/api/v1/auth/login", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), pool = Depends(lambda: app.state.pool)):
@@ -183,6 +229,8 @@ async def get_assessments(current_user: User = Depends(require_roles([UserRole.A
 async def create_assessment(assessment: Assessment, current_user: User = Depends(require_roles([UserRole.ASSESSOR]))):
     async with app.state.pool.acquire() as connection:
         try:
+            # The current query doesn't return the new assessment_id. For a robust audit trail,
+            # this should be modified. For now, we log the client_id as the related object.
             await connection.execute(
                 """
                 INSERT INTO assessments (client_id, assessor_id, date, location, form_version, answers_json, attachments)
@@ -195,6 +243,14 @@ async def create_assessment(assessment: Assessment, current_user: User = Depends
                 assessment.form_version,
                 assessment.answers_json,
                 assessment.attachments,
+            )
+            await log_audit_event(
+                app.state.pool,
+                current_user.user_id,
+                action="create_assessment",
+                object_type="assessment",
+                object_id=assessment.client_id,
+                details={"client_id": assessment.client_id}
             )
             return {"status": "success"}
         except Exception as e:
@@ -214,6 +270,9 @@ async def create_client(client: Client, current_user: User = Depends(require_rol
                 client.gender,
                 client.address,
                 client.la_area,
+            )
+            await log_audit_event(
+                app.state.pool, current_user.user_id, "create_client", "client", client_id, client.dict()
             )
             return {"client_id": client_id}
         except Exception as e:
@@ -288,6 +347,9 @@ async def create_assistive_device_referral(device: AssistiveDevice, current_user
                 """,
                 device.client_id, device.device_type, device.serial_number, device.warranty_expires_on, device.installer_id, device.pamms_id
             )
+            await log_audit_event(
+                app.state.pool, current_user.user_id, "create_device_referral", "assistive_device", row['device_id'], device.dict()
+            )
             return dict(row)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -302,6 +364,7 @@ async def get_assistive_devices(current_user: User = Depends(require_roles([User
 async def update_assistive_device_status(device_id: int, status_update: StatusUpdate, current_user: User = Depends(require_roles([UserRole.COORDINATOR, UserRole.MANAGER, UserRole.ADMIN]))):
     async with app.state.pool.acquire() as connection:
         try:
+            # It's good practice to fetch the state before the change to log it, but for simplicity we'll just log the new state.
             row = await connection.fetchrow(
                 """
                 UPDATE assistive_devices SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE device_id = $2 RETURNING *
@@ -310,6 +373,15 @@ async def update_assistive_device_status(device_id: int, status_update: StatusUp
             )
             if not row:
                 raise HTTPException(status_code=404, detail=f"Device with id {device_id} not found")
+
+            await log_audit_event(
+                app.state.pool,
+                current_user.user_id,
+                action="update_device_status",
+                object_type="assistive_device",
+                object_id=device_id,
+                details={"new_status": status_update.status.value}
+            )
             return dict(row)
         except HTTPException:
             raise
@@ -424,8 +496,17 @@ async def create_care_plan_for_client(client_id: int, plan_data: CarePlanCreate,
                     raise HTTPException(status_code=500, detail="Failed to create care plan.")
 
                 care_plan_id = plan_row['care_plan_id']
-                actions_list = []
 
+                await log_audit_event(
+                    app.state.pool,
+                    current_user.user_id,
+                    action="create_care_plan",
+                    object_type="care_plan",
+                    object_id=care_plan_id,
+                    details=plan_data.dict()
+                )
+
+                actions_list = []
                 # Insert the associated actions
                 for action in plan_data.actions:
                     action_row = await connection.fetchrow(

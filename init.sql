@@ -84,3 +84,13 @@ CREATE TABLE users (
 INSERT INTO users (email, hashed_password, role, full_name) VALUES
 ('manager@care.com', '$2b$12$EixZa.Asd.s.s3.Ew2F.d.2j.X3p.Y3p.Z3p.X3p.Y3p.Z3', 'manager', 'Maria Manager'),
 ('assessor@care.com', '$2b$12$EixZa.Asd.s.s3.Ew2F.d.2j.X3p.Y3p.Z3p.X3p.Y3p.Z3', 'assessor', 'Andy Assessor');
+
+CREATE TABLE audit_log (
+    event_id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(user_id),
+    action VARCHAR(255) NOT NULL,
+    object_type VARCHAR(100),
+    object_id INTEGER,
+    details JSONB,
+    event_timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

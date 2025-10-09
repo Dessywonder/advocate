@@ -4,3 +4,7 @@ asyncpg
 pydantic
 passlib[bcrypt]
 python-jose[cryptography]
+
+# Testing
+pytest
+pytest-asyncio

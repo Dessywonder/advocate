@@ -237,12 +237,18 @@ This test verifies the creation and display of client-specific care plans. It as
 3.  **Save the Care Plan:**
     *   Click the **"Save Care Plan"** button.
 
-### Step 3: Verify the Care Plan
+### Step 3: Verify the Care Plan and Audit Trail
 
 1.  **Check the Display:**
     *   The form should clear, and the "Existing Care Plans" section above it should now display the new care plan.
     *   You should see the Plan ID, Status, and Start Date.
     *   Below that, you should see the three goals/actions you entered, listed as bullet points.
+
+2.  **View the Audit Trail:**
+    *   Log out and log back in as the manager (`manager@care.com`).
+    *   Navigate back to the same client's detail page.
+    *   Next to the new care plan you created, click the **"Show History"** button.
+    *   An audit trail table should appear, showing an event for the "create_care_plan" action, including the user who performed it and the data that was saved.
 
 This completes the test of the care plan functionality, demonstrating the ability to create and view a multi-action care plan for a specific client.
 
