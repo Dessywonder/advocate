@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import AssistiveTech from './AssistiveTech';
+import Dashboard from './Dashboard';
 
 const API_URL = 'http://localhost:8000';
 
-function App() {
+const AssessmentsViewer = () => {
   const [assessments, setAssessments] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,14 +33,11 @@ function App() {
   }, []);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Synced Assessments Viewer</h1>
+    <div>
+        <h2>Synced Assessments</h2>
         <button onClick={fetchAssessments} disabled={loading}>
           {loading ? 'Refreshing...' : 'Refresh Data'}
         </button>
-      </header>
-      <main>
         {loading && <p>Loading assessments...</p>}
         {error && <p className="error">Error: {error}</p>}
         {!loading && !error && (
@@ -73,6 +72,28 @@ function App() {
             </tbody>
           </table>
         )}
+    </div>
+  );
+};
+
+
+function App() {
+  const [view, setView] = useState('dashboard'); // 'dashboard', 'assessments', or 'assistiveTech'
+
+  return (
+    <div className="App">
+      <header className="App-header">
+        <h1>Care Management Platform</h1>
+        <nav>
+            <button onClick={() => setView('dashboard')} disabled={view === 'dashboard'}>Dashboard</button>
+            <button onClick={() => setView('assessments')} disabled={view === 'assessments'}>Assessments</button>
+            <button onClick={() => setView('assistiveTech')} disabled={view === 'assistiveTech'}>Assistive Tech</button>
+        </nav>
+      </header>
+      <main>
+        {view === 'dashboard' && <Dashboard />}
+        {view === 'assessments' && <AssessmentsViewer />}
+        {view === 'assistiveTech' && <AssistiveTech />}
       </main>
     </div>
   );

@@ -21,3 +21,27 @@ CREATE TABLE assessments (
     attachments TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TYPE device_workflow_status AS ENUM (
+    'Referral',
+    'Triage',
+    'Assessment',
+    'Device Approval',
+    'Procurement',
+    'Installation',
+    'Review',
+    'Maintenance'
+);
+
+CREATE TABLE assistive_devices (
+    device_id SERIAL PRIMARY KEY,
+    client_id INTEGER REFERENCES clients(client_id),
+    device_type VARCHAR(255) NOT NULL,
+    serial_number VARCHAR(255),
+    status device_workflow_status NOT NULL DEFAULT 'Referral',
+    warranty_expires_on DATE,
+    installer_id INTEGER,
+    pamms_id VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
