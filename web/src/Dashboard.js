@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area } from 'recharts';
+import { apiFetch } from './api';
 import './App.css';
-
-const API_URL = 'http://localhost:8000';
 
 function Dashboard() {
     const [predictionData, setPredictionData] = useState(null);
@@ -11,15 +10,10 @@ function Dashboard() {
 
     const fetchPredictions = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const response = await fetch(`${API_URL}/api/v1/predictions`);
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.detail || 'Failed to fetch predictions.');
-            }
-            const data = await response.json();
+            const data = await apiFetch('/api/v1/predictions');
             setPredictionData(data);
-            setError(null);
         } catch (err) {
             setError(err.message);
             setPredictionData(null);

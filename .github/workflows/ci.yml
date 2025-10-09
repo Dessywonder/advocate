@@ -1,0 +1,37 @@
+name: Backend CI
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      # Sets up python
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # Installs dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      # Runs pytest
+      # Note: This CI environment does not have a running database.
+      # Our current integration tests would fail. In a real-world scenario,
+      # this workflow would be expanded to spin up a database service for testing.
+      # For now, we will run pytest but expect integration tests to fail gracefully.
+      - name: Run tests with pytest
+        run: |
+          pytest backend/

@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
-
-const API_URL = 'http://localhost:8000';
+import { apiFetch } from './api';
 
 function ProvidersPage() {
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { authToken } = useAuth();
 
     // Form state for creating a new provider
     const [name, setName] = useState('');
@@ -15,14 +12,10 @@ function ProvidersPage() {
 
     const fetchProviders = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const response = await fetch(`${API_URL}/api/v1/providers`, {
-                headers: { 'Authorization': `Bearer ${authToken}` },
-            });
-            if (!response.ok) throw new Error('Failed to fetch providers.');
-            const data = await response.json();
+            const data = await apiFetch('/api/v1/providers');
             setProviders(data);
-            setError(null);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -32,25 +25,21 @@ function ProvidersPage() {
 
     useEffect(() => {
         fetchProviders();
-    }, [authToken]);
+    }, []);
 
     const handleCreateProvider = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch(`${API_URL}/api/v1/providers`, {
+            await apiFetch('/api/v1/providers', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`,
-                },
                 body: JSON.stringify({ name, services_offered: services }),
             });
-            if (!response.ok) throw new Error('Failed to create provider.');
 
             // Refresh list and clear form
             fetchProviders();
             setName('');
             setServices('');
+            setError(null);
         } catch (err) {
             setError(err.message);
         }

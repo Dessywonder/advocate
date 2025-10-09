@@ -1,9 +1,14 @@
 import * as SQLite from 'expo-sqlite';
 
 const db = SQLite.openDatabase('assessments.db');
-const API_URL = 'http://localhost:8000'; // This would be an environment variable in a real app
+// NOTE: For Android emulators, 10.0.2.2 is an alias for the host machine's localhost.
+const API_URL = 'http://10.0.2.2:8000';
 
-export const syncAssessments = async () => {
+export const syncAssessments = async (authToken) => {
+    if (!authToken) {
+        throw new Error("Authentication token is missing. Cannot sync.");
+    }
+
     return new Promise((resolve, reject) => {
         db.transaction(tx => {
             // Step 1: Select all assessments that have not been synced yet
@@ -23,11 +28,12 @@ export const syncAssessments = async () => {
 
                     for (const assessment of assessments) {
                         try {
-                            // Step 2: For each assessment, send it to the backend
+                            // Step 2: For each assessment, send it to the backend with the auth token
                             const response = await fetch(`${API_URL}/api/v1/assessments`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${authToken}`, // Add the token here
                                 },
                                 body: JSON.stringify({
                                     client_id: assessment.client_id,

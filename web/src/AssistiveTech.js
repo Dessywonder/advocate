@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from './api';
 import './App.css'; // Reusing the main CSS for simplicity
 
-const API_URL = 'http://localhost:8000';
 const WORKFLOW_STATUSES = [
     'Referral', 'Triage', 'Assessment', 'Device Approval',
     'Procurement', 'Installation', 'Review', 'Maintenance'
@@ -20,12 +20,10 @@ function AssistiveTech() {
 
     const fetchData = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const response = await fetch(`${API_URL}/api/v1/assistive-devices`);
-            if (!response.ok) throw new Error('Failed to fetch devices.');
-            const data = await response.json();
+            const data = await apiFetch('/api/v1/assistive-devices');
             setDevices(data);
-            setError(null);
         } catch (err) {
             setError(err.message);
             setDevices([]);
@@ -45,12 +43,10 @@ function AssistiveTech() {
             return;
         }
         try {
-            const response = await fetch(`${API_URL}/api/v1/assistive-devices`, {
+            await apiFetch('/api/v1/assistive-devices', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ client_id: parseInt(clientId), device_type: deviceType }),
             });
-            if (!response.ok) throw new Error('Failed to create referral.');
             // Refresh data and clear form
             fetchData();
             setClientId('');
@@ -63,12 +59,10 @@ function AssistiveTech() {
 
     const handleUpdateStatus = async (deviceId, newStatus) => {
         try {
-            const response = await fetch(`${API_URL}/api/v1/assistive-devices/${deviceId}/status`, {
+            await apiFetch(`/api/v1/assistive-devices/${deviceId}/status`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
             });
-            if (!response.ok) throw new Error('Failed to update status.');
             fetchData(); // Refresh list
         } catch (err) {
             setError(err.message);

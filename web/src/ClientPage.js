@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './api';
 import './App.css';
 import CarePlan from './CarePlan';
 import AuditLogViewer from './AuditLogViewer';
 
-const API_URL = 'http://localhost:8000';
-
 const ClientPage = () => {
     const { clientId } = useParams();
     const navigate = useNavigate();
-    const { authToken, user } = useAuth();
+    const { user } = useAuth();
 
     const [assessments, setAssessments] = useState([]);
     const [devices, setDevices] = useState([]);
@@ -21,18 +20,13 @@ const ClientPage = () => {
 
     useEffect(() => {
         const fetchDataForClient = async () => {
-            // ... existing data fetching logic ...
             setLoading(true);
             setError(null);
             try {
-                const headers = { 'Authorization': `Bearer ${authToken}` };
-                const [assessmentsRes, devicesRes] = await Promise.all([
-                    fetch(`${API_URL}/api/v1/clients/${clientId}/assessments`, { headers }),
-                    fetch(`${API_URL}/api/v1/clients/${clientId}/devices`, { headers })
+                const [assessmentsData, devicesData] = await Promise.all([
+                    apiFetch(`/api/v1/clients/${clientId}/assessments`),
+                    apiFetch(`/api/v1/clients/${clientId}/devices`)
                 ]);
-                if (!assessmentsRes.ok || !devicesRes.ok) throw new Error('Failed to fetch client data.');
-                const assessmentsData = await assessmentsRes.json();
-                const devicesData = await devicesRes.json();
                 setAssessments(assessmentsData);
                 setDevices(devicesData);
             } catch (err) {
@@ -42,17 +36,18 @@ const ClientPage = () => {
             }
         };
         fetchDataForClient();
-    }, [clientId, authToken]);
+    }, [clientId]);
 
-    const handleFetchGpSummary = async () => {
+    const [nhsNumberInput, setNhsNumberInput] = useState('');
+
+    const handleFetchGpSummary = async (e) => {
+        e.preventDefault();
+        if (!nhsNumberInput) return;
         try {
-            const response = await fetch(`${API_URL}/api/v1/gp-connect/fetch-summary`, {
+            const data = await apiFetch('/api/v1/gp-connect/fetch-summary', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                body: JSON.stringify({ nhs_number: "9876543210" }), // Using a dummy NHS number for demo
+                body: JSON.stringify({ nhs_number: nhsNumberInput }),
             });
-            if (!response.ok) throw new Error('Failed to fetch GP summary.');
-            const data = await response.json();
             setGpSummary(data);
         } catch (err) {
             setError(err.message);
@@ -78,11 +73,20 @@ const ClientPage = () => {
                 <div className="client-page-container">
                     <div className="client-section">
                         <h3>GP Connect Summary</h3>
-                        {canFetchGpSummary && !gpSummary && (
-                            <button onClick={handleFetchGpSummary}>Fetch GP Summary</button>
+                        {canFetchGpSummary && (
+                            <form onSubmit={handleFetchGpSummary} className="gp-connect-form">
+                                <input
+                                    type="text"
+                                    value={nhsNumberInput}
+                                    onChange={(e) => setNhsNumberInput(e.target.value)}
+                                    placeholder="Enter NHS Number"
+                                    required
+                                />
+                                <button type="submit">Fetch GP Summary</button>
+                            </form>
                         )}
                         {gpSummary && (
-                            <div>
+                            <div className="gp-summary-details">
                                 <p><strong>Name:</strong> {gpSummary.name[0].text || `${gpSummary.name[0].given.join(' ')} ${gpSummary.name[0].family}`}</p>
                                 <p><strong>DoB:</strong> {gpSummary.birthDate}</p>
                                 <p><strong>Address:</strong> {gpSummary.address[0].text || `${gpSummary.address[0].line[0]}, ${gpSummary.address[0].city}, ${gpSummary.address[0].postalCode}`}</p>

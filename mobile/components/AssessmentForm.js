@@ -1,12 +1,14 @@
 import React, 'react';
-import { Button, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Button, ScrollView, StyleSheet, Text, TextInput, View, Alert } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { syncAssessments } from '../services/sync';
+import { useAuth } from '../src/AuthContext'; // Import useAuth
 
 // Open a database, creating it if it doesn't exist
 const db = SQLite.openDatabase('assessments.db');
 
 const AssessmentForm = () => {
+    const { authToken } = useAuth(); // Get the auth token
     // State for form fields
     const [clientId, setClientId] = React.useState('');
     const [assessorId, setAssessorId] = React.useState('');
@@ -85,15 +87,17 @@ const AssessmentForm = () => {
     const handleSync = async () => {
         setStatusMessage('Starting sync...');
         try {
-            const { syncedCount, errors } = await syncAssessments();
+            const { syncedCount, errors } = await syncAssessments(authToken); // Pass the token here
             let message = `Sync complete. ${syncedCount} assessments synced.`;
             if (errors.length > 0) {
                 message += ` ${errors.length} failed.`;
                 console.log('Sync errors:', errors);
             }
             setStatusMessage(message);
+            Alert.alert("Sync Complete", message);
         } catch (error) {
-            setStatusMessage('Sync failed. See console for details.');
+            setStatusMessage(`Sync failed: ${error.message}`);
+            Alert.alert("Sync Error", error.message);
             console.error('Sync process failed:', error);
         }
     };

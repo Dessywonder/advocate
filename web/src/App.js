@@ -8,9 +8,10 @@ import ClientPage from './ClientPage';
 import LoginPage from './LoginPage';
 import ProtectedRoute from './ProtectedRoute';
 import RoleProtectedRoute from './RoleProtectedRoute';
-import ProvidersPage from './ProvidersPage'; // Import the new component
+import ProvidersPage from './ProvidersPage';
+import { apiFetch } from './api'; // Import the new helper
 
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://localhost:8000'; // This is now handled by api.js but we'll leave it for now to avoid breaking other components yet
 
 // This component remains largely the same
 const AssessmentsViewer = () => {
@@ -21,14 +22,10 @@ const AssessmentsViewer = () => {
 
   const fetchAssessments = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/v1/assessments`, {
-          // In a real app, the token would be attached here
-      });
-      if (!response.ok) throw new Error('Failed to fetch data. You may not have the required permissions.');
-      const data = await response.json();
+      const data = await apiFetch('/api/v1/assessments');
       setAssessments(data);
-      setError(null);
     } catch (err) {
       setError(err.message);
       setAssessments([]);

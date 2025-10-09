@@ -49,7 +49,6 @@ This test simulates the core user journey: an assessor captures data offline, sy
         npm start
         ```
     *   Open a web browser and navigate to `http://localhost:3000`.
-    *   You should see the "Synced Assessments Viewer" dashboard. Initially, it will show "No assessments found."
 
 2.  **Run the Mobile App:**
     *   In the `mobile` directory, start the Expo development server:
@@ -58,7 +57,21 @@ This test simulates the core user journey: an assessor captures data offline, sy
         ```
     *   This will open the Expo developer tools. Use the Expo Go app on a physical device (or an emulator) to open the mobile application.
 
-### Step 2: Capture an Assessment (Offline)
+### Step 2: Log In to the Mobile App
+
+1.  **Open the App:**
+    *   When you first open the mobile app, you should be presented with the **Login Screen**.
+
+2.  **Log In as an Assessor:**
+    *   Enter the following credentials:
+        *   Email: `assessor@care.com`
+        *   Password: `password` (any password will work)
+    *   Tap **"Login"**.
+
+3.  **View the Main Screen:**
+    *   After a successful login, you should be taken to the "Offline Assessments" screen. You are now ready to capture data.
+
+### Step 3: Capture an Assessment (Offline)
 
 1.  **Simulate Offline Mode:**
     *   On the mobile device running the app, **disable Wi-Fi and cellular data**. This is critical to test the offline capabilities.
@@ -374,6 +387,7 @@ This test verifies the system's ability to expose its own data in the FHIR forma
 
 2.  **Fetch the GP Summary:**
     *   On the Client Details page, find the "GP Connect Summary" section.
+    *   In the input field, type a dummy NHS number (e.g., `9876543210`).
     *   Click the **"Fetch GP Summary"** button.
 
 3.  **Verify the Displayed Data:**

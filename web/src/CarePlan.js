@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import AuditLogViewer from './AuditLogViewer';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './api';
 import ActionItem from './ActionItem'; // Import the new component
 
-const API_URL = 'http://localhost:8000';
-
 function CarePlan({ clientId, onShowAudit, visibleAudit }) {
-    const { user, authToken } = useAuth();
+    const { user } = useAuth();
     const [carePlans, setCarePlans] = useState([]);
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -22,24 +21,18 @@ function CarePlan({ clientId, onShowAudit, visibleAudit }) {
 
     const fetchData = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const headers = { 'Authorization': `Bearer ${authToken}` };
-            const [plansRes, providersRes] = await Promise.all([
-                fetch(`${API_URL}/api/v1/clients/${clientId}/careplans`, { headers }),
-                fetch(`${API_URL}/api/v1/providers`, { headers }),
+            const [plansData, providersData] = await Promise.all([
+                apiFetch(`/api/v1/clients/${clientId}/careplans`),
+                apiFetch('/api/v1/providers'),
             ]);
-
-            if (!plansRes.ok || !providersRes.ok) throw new Error('Failed to fetch care plan data.');
-
-            const plansData = await plansRes.json();
-            const providersData = await providersRes.json();
 
             setCarePlans(plansData);
             setProviders(providersData);
             if (providersData.length > 0) {
                 setSelectedProvider(providersData[0].provider_id);
             }
-            setError(null);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -49,7 +42,7 @@ function CarePlan({ clientId, onShowAudit, visibleAudit }) {
 
     useEffect(() => {
         fetchData();
-    }, [clientId, authToken]);
+    }, [clientId]);
 
     const handleActionChange = (index, event) => {
         const newActions = [...actions];
@@ -69,14 +62,14 @@ function CarePlan({ clientId, onShowAudit, visibleAudit }) {
         };
 
         try {
-            await fetch(`${API_URL}/api/v1/clients/${clientId}/careplans`, {
+            await apiFetch(`/api/v1/clients/${clientId}/careplans`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                 body: JSON.stringify(newCarePlan),
             });
             fetchData(); // Refresh data
             setStartDate(new Date().toISOString().split('T')[0]);
             setActions([{ goal_description: '' }]);
+            setError(null);
         } catch (err) {
             setError(err.message);
         }
@@ -84,9 +77,8 @@ function CarePlan({ clientId, onShowAudit, visibleAudit }) {
 
     const handleAssignProvider = async (carePlanId) => {
         try {
-            await fetch(`${API_URL}/api/v1/careplans/${carePlanId}/assign-provider`, {
+            await apiFetch(`/api/v1/careplans/${carePlanId}/assign-provider`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                 body: JSON.stringify({ provider_id: parseInt(selectedProvider) }),
             });
             fetchData(); // Refresh to show assigned provider
@@ -138,7 +130,31 @@ function CarePlan({ clientId, onShowAudit, visibleAudit }) {
 
             <hr style={{ margin: '20px 0' }} />
             <h4>Create New Care Plan</h4>
-            {/* ... create form ... */}
+            <form onSubmit={handleSubmit} className="care-plan-form">
+                <label>Start Date:</label>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+
+                <label>Status:</label>
+                <select value={status} onChange={e => setStatus(e.target.value)}>
+                    <option value="Draft">Draft</option>
+                    <option value="Active">Active</option>
+                </select>
+
+                <label>Goals/Actions:</label>
+                {actions.map((action, index) => (
+                    <div key={index} className="action-input">
+                        <input
+                            type="text"
+                            placeholder="Describe a goal or action"
+                            value={action.goal_description}
+                            onChange={(e) => handleActionChange(index, e)}
+                        />
+                        <button type="button" onClick={() => handleRemoveAction(index)} disabled={actions.length <= 1}>Remove</button>
+                    </div>
+                ))}
+                <button type="button" onClick={handleAddAction}>Add Action</button>
+                <button type="submit" style={{ marginLeft: '10px' }}>Save Care Plan</button>
+            </form>
         </div>
     );
 }

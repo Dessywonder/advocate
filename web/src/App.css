@@ -218,6 +218,21 @@ tr:hover {
   border-left: 4px solid #2196F3;
 }
 
+/* GP Connect Form Styles */
+.gp-connect-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.gp-summary-details {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f0f8ff;
+  border: 1px solid #d1e7fd;
+  border-radius: 4px;
+}
+
 .user-info {
   margin-left: auto;
   padding-right: 20px;

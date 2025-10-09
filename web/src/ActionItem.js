@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-
-const API_URL = 'http://localhost:8000';
+import { apiFetch } from './api';
 
 function ActionItem({ action }) {
-    const { user, authToken } = useAuth();
+    const { user } = useAuth();
     const [outcomes, setOutcomes] = useState([]);
     const [showOutcomeForm, setShowOutcomeForm] = useState(false);
     const [outcomeDescription, setOutcomeDescription] = useState('');
@@ -12,11 +11,7 @@ function ActionItem({ action }) {
 
     const fetchOutcomes = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/v1/actions/${action.action_id}/outcomes`, {
-                headers: { 'Authorization': `Bearer ${authToken}` },
-            });
-            if (!response.ok) throw new Error('Failed to fetch outcomes.');
-            const data = await response.json();
+            const data = await apiFetch(`/api/v1/actions/${action.action_id}/outcomes`);
             setOutcomes(data);
         } catch (err) {
             setError(err.message);
@@ -25,19 +20,19 @@ function ActionItem({ action }) {
 
     useEffect(() => {
         fetchOutcomes();
-    }, [action.action_id, authToken]);
+    }, [action.action_id]);
 
     const handleRecordOutcome = async (e) => {
         e.preventDefault();
         try {
-            await fetch(`${API_URL}/api/v1/actions/${action.action_id}/outcomes`, {
+            await apiFetch(`/api/v1/actions/${action.action_id}/outcomes`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                 body: JSON.stringify({ outcome_description: outcomeDescription }),
             });
             fetchOutcomes(); // Refresh outcomes list
             setOutcomeDescription('');
             setShowOutcomeForm(false);
+            setError(null);
         } catch (err) {
             setError(err.message);
         }

@@ -2,12 +2,14 @@ fastapi
 uvicorn
 asyncpg
 pydantic
+pydantic-settings
 passlib[bcrypt]
 python-jose[cryptography]
 
 # Testing
 pytest
 pytest-asyncio
+pytest-mock
 
 # Interoperability
 fhir.resources
