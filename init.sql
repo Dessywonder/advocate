@@ -67,3 +67,20 @@ CREATE TABLE care_plan_actions (
     is_completed BOOLEAN DEFAULT FALSE,
     target_date DATE
 );
+
+CREATE TYPE user_role AS ENUM ('assessor', 'manager', 'coordinator', 'admin');
+
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    role user_role NOT NULL,
+    full_name VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert a few sample users for testing
+INSERT INTO users (email, hashed_password, role, full_name) VALUES
+('manager@care.com', '$2b$12$EixZa.Asd.s.s3.Ew2F.d.2j.X3p.Y3p.Z3p.X3p.Y3p.Z3', 'manager', 'Maria Manager'),
+('assessor@care.com', '$2b$12$EixZa.Asd.s.s3.Ew2F.d.2j.X3p.Y3p.Z3p.X3p.Y3p.Z3', 'assessor', 'Andy Assessor');

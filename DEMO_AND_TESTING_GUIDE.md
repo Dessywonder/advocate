@@ -217,6 +217,7 @@ This test verifies the creation and display of client-specific care plans. It as
 2.  **Select a Client:**
     *   In the "Client ID" column, click on the ID of a client (e.g., `101`).
     *   The URL will change to `http://localhost:3000/client/101`, and you will be on the "Client Details" page for that client.
+    *   Verify that the page now shows lists of "Assessments" and "Assistive Devices" for Client 101, replacing the old placeholder text.
 
 ### Step 2: Create a New Care Plan
 
@@ -244,3 +245,65 @@ This test verifies the creation and display of client-specific care plans. It as
     *   Below that, you should see the three goals/actions you entered, listed as bullet points.
 
 This completes the test of the care plan functionality, demonstrating the ability to create and view a multi-action care plan for a specific client.
+
+---
+
+## Part 6: Authentication and RBAC Test
+
+This test verifies that users can log in and that their access to different parts of the application is correctly restricted based on their role.
+
+### Step 1: Access the Login Page
+
+1.  **Navigate to the Root URL:**
+    *   In a fresh browser session (or after logging out), navigate to `http://localhost:3000`.
+    *   Because you are not authenticated, you should be automatically redirected to the login page at `http://localhost:3000/login`.
+
+### Step 2: Test the Manager Role
+
+1.  **Log in as a Manager:**
+    *   On the login page, enter the following credentials:
+        *   Email: `manager@care.com`
+        *   Password: `password` (any password will work)
+    *   Click **"Login"**.
+
+2.  **Verify Manager Access:**
+    *   You should be redirected to the Dashboard.
+    *   In the header, you should see your role ("Welcome, manager!") and links to **Dashboard**, **Assessments**, and **Assistive Tech**.
+    *   Verify that you can navigate to and view all three of these pages.
+
+3.  **Log Out:**
+    *   Click the **"Logout"** button in the header. You should be returned to the login page.
+
+### Step 3: Test the Assessor Role
+
+1.  **Log in as an Assessor:**
+    *   On the login page, enter the following credentials:
+        *   Email: `assessor@care.com`
+        *   Password: `password`
+    *   Click **"Login"**.
+
+2.  **Verify Assessor Access:**
+    *   You should be redirected to the main page.
+    *   In the header, you should see your role ("Welcome, assessor!").
+    *   Crucially, you should **only** see a navigation link for **Assessments**. The links for Dashboard and Assistive Tech should not be visible.
+    *   Verify that you can access the Assessments page.
+
+3.  **Test URL Protection:**
+    *   Manually change the URL in your browser's address bar to `http://localhost:3000/`.
+    *   Because the assessor role is not permitted to view the dashboard, you should be redirected back to your default view. This confirms the route-level protection is working.
+
+4.  **Log Out:**
+    *   Click the **"Logout"** button.
+
+This completes the test of the authentication and role-based access control systems.
+
+### Step 4: Verify Stricter Permissions
+
+1.  **Log in as an Assessor:**
+    *   Use the credentials `assessor@care.com` / `password`.
+
+2.  **Attempt to View Devices:**
+    *   Manually change the URL in your browser's address bar to `http://localhost:3000/assistive-tech`.
+    *   The page should redirect you away, and if you check the browser's developer tools, you will see a `403 Forbidden` error for the API request to `/api/v1/assistive-devices`. This confirms the backend RBAC is working correctly.
+
+3.  **Log Out.**

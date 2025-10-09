@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useParams, Outlet } from 'react-router-dom';
 import './App.css';
+import { useAuth } from './AuthContext';
 import AssistiveTech from './AssistiveTech';
 import Dashboard from './Dashboard';
 import ClientPage from './ClientPage';
+import LoginPage from './LoginPage';
+import ProtectedRoute from './ProtectedRoute';
+import RoleProtectedRoute from './RoleProtectedRoute'; // Import the new component
 
 const API_URL = 'http://localhost:8000';
 
+// This component remains largely the same
 const AssessmentsViewer = () => {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState([]);
@@ -16,8 +21,10 @@ const AssessmentsViewer = () => {
   const fetchAssessments = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/v1/assessments`);
-      if (!response.ok) throw new Error('Failed to fetch data from the server.');
+      const response = await fetch(`${API_URL}/api/v1/assessments`, {
+          // In a real app, the token would be attached here
+      });
+      if (!response.ok) throw new Error('Failed to fetch data. You may not have the required permissions.');
       const data = await response.json();
       setAssessments(data);
       setError(null);
@@ -39,6 +46,7 @@ const AssessmentsViewer = () => {
         <button onClick={fetchAssessments} disabled={loading}>
           {loading ? 'Refreshing...' : 'Refresh Data'}
         </button>
+        {/* ... rest of the component is the same ... */}
         {loading && <p>Loading assessments...</p>}
         {error && <p className="error">Error: {error}</p>}
         {!loading && !error && (
@@ -73,27 +81,78 @@ const AssessmentsViewer = () => {
   );
 };
 
+// A layout component to show the header for protected routes
+const AppLayout = () => {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
+    return (
+        <div className="App">
+            <header className="App-header">
+                <h1>Care Management Platform</h1>
+                <nav>
+                    {/* Manager/Admin can see Dashboard */}
+                    {(user.role === 'manager' || user.role === 'admin') &&
+                        <Link to="/"><button>Dashboard</button></Link>
+                    }
+                    {/* Assessor/Manager/Admin can see Assessments */}
+                    {(user.role === 'assessor' || user.role === 'manager' || user.role === 'admin') &&
+                        <Link to="/assessments"><button>Assessments</button></Link>
+                    }
+                    {/* Coordinator/Manager/Admin can see Assistive Tech */}
+                    {(user.role === 'coordinator' || user.role === 'manager' || user.role === 'admin') &&
+                        <Link to="/assistive-tech"><button>Assistive Tech</button></Link>
+                    }
+                </nav>
+                <div className="user-info">
+                    {user && <span>Welcome, {user.role}!</span>}
+                    <button onClick={handleLogout}>Logout</button>
+                </div>
+            </header>
+            <main>
+                <Outlet /> {/* Child routes will render here */}
+            </main>
+        </div>
+    );
+};
+
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Care Management Platform</h1>
-        <nav>
-            <Link to="/"><button>Dashboard</button></Link>
-            <Link to="/assessments"><button>Assessments</button></Link>
-            <Link to="/assistive-tech"><button>Assistive Tech</button></Link>
-        </nav>
-      </header>
-      <main>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/assessments" element={<AssessmentsViewer />} />
-          <Route path="/assistive-tech" element={<AssistiveTech />} />
-          <Route path="/client/:clientId" element={<ClientPage />} />
-        </Routes>
-      </main>
-    </div>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* These are the nested, protected routes with role-based access */}
+        <Route index element={
+            <RoleProtectedRoute requiredRoles={['manager', 'admin']}>
+                <Dashboard />
+            </RoleProtectedRoute>
+        } />
+        <Route path="assessments" element={
+            <RoleProtectedRoute requiredRoles={['assessor', 'manager', 'admin']}>
+                <AssessmentsViewer />
+            </RoleProtectedRoute>
+        } />
+        <Route path="assistive-tech" element={
+            <RoleProtectedRoute requiredRoles={['coordinator', 'manager', 'admin']}>
+                <AssistiveTech />
+            </RoleProtectedRoute>
+        } />
+        <Route path="client/:clientId" element={<ClientPage />} />
+      </Route>
+    </Routes>
   );
 }
 

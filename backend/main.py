@@ -1,15 +1,77 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import asyncpg
 from enum import Enum
 import pickle
 from pathlib import Path
 
+# Security imports
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+# --- Configuration ---
+# In a real app, these should come from environment variables
+SECRET_KEY = "a_very_secret_key_that_should_be_in_env_vars"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 app = FastAPI()
 
-# Database connection settings
+# OAuth2 scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+
+
+# --- Security Utility Functions ---
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+# --- Pydantic Models for Auth ---
+
+class UserRole(str, Enum):
+    ASSESSOR = "assessor"
+    MANAGER = "manager"
+    COORDINATOR = "coordinator"
+    ADMIN = "admin"
+
+class User(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    is_active: bool
+    role: UserRole
+
+class UserInDB(User):
+    hashed_password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+
+# --- Database connection settings ---
 DATABASE_URL = "postgresql://user:password@db/mydatabase"
 
 @app.on_event("startup")
@@ -19,6 +81,78 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await app.state.pool.close()
+
+
+# --- Auth Helper Functions ---
+
+async def get_user_from_db(email: str, pool) -> Optional[UserInDB]:
+    async with pool.acquire() as connection:
+        user_row = await connection.fetchrow("SELECT * FROM users WHERE email = $1", email)
+        if user_row:
+            return UserInDB(**user_row)
+    return None
+
+async def get_current_user(token: str = Depends(oauth2_scheme), pool = Depends(lambda: app.state.pool)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    user = await get_user_from_db(email=token_data.email, pool=pool)
+    if user is None:
+        raise credentials_exception
+    return user
+
+def require_roles(required_roles: List[UserRole]):
+    """
+    Dependency that checks if the current user has one of the required roles.
+    """
+    def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role not in required_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Operation not permitted. Requires one of the following roles: {[role.value for role in required_roles]}"
+            )
+        return current_user
+    return role_checker
+
+
+# --- Auth Endpoints ---
+
+@app.post("/api/v1/auth/login", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), pool = Depends(lambda: app.state.pool)):
+    user = await get_user_from_db(form_data.username, pool=pool)
+    # The stored password is a dummy hash. In a real app, you would use:
+    # if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if user is active
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email, "role": user.role.value}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/api/v1/auth/me", response_model=User)
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
 
 class Client(BaseModel):
     initials: str
@@ -40,13 +174,13 @@ class AssessmentInDB(Assessment):
     assessment_id: int
 
 @app.get("/api/v1/assessments", response_model=List[AssessmentInDB])
-async def get_assessments():
+async def get_assessments(current_user: User = Depends(require_roles([UserRole.ASSESSOR, UserRole.MANAGER, UserRole.ADMIN]))):
     async with app.state.pool.acquire() as connection:
         rows = await connection.fetch("SELECT assessment_id, client_id, assessor_id, date, location, form_version, answers_json, attachments FROM assessments ORDER BY date DESC")
         return [dict(row) for row in rows]
 
 @app.post("/api/v1/assessments")
-async def create_assessment(assessment: Assessment):
+async def create_assessment(assessment: Assessment, current_user: User = Depends(require_roles([UserRole.ASSESSOR]))):
     async with app.state.pool.acquire() as connection:
         try:
             await connection.execute(
@@ -67,7 +201,7 @@ async def create_assessment(assessment: Assessment):
             raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/clients")
-async def create_client(client: Client):
+async def create_client(client: Client, current_user: User = Depends(require_roles([UserRole.ASSESSOR]))):
     async with app.state.pool.acquire() as connection:
         try:
             client_id = await connection.fetchval(
@@ -84,6 +218,20 @@ async def create_client(client: Client):
             return {"client_id": client_id}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/clients/{client_id}/assessments", response_model=List[AssessmentInDB])
+async def get_assessments_for_client(client_id: int, current_user: User = Depends(require_roles([UserRole.ASSESSOR, UserRole.MANAGER, UserRole.ADMIN]))):
+    async with app.state.pool.acquire() as connection:
+        rows = await connection.fetch("SELECT * FROM assessments WHERE client_id = $1 ORDER BY date DESC", client_id)
+        return [dict(row) for row in rows]
+
+
+@app.get("/api/v1/clients/{client_id}/devices", response_model=List[AssistiveDeviceInDB])
+async def get_devices_for_client(client_id: int, current_user: User = Depends(require_roles([UserRole.COORDINATOR, UserRole.MANAGER, UserRole.ADMIN]))):
+    async with app.state.pool.acquire() as connection:
+        rows = await connection.fetch("SELECT * FROM assistive_devices WHERE client_id = $1 ORDER BY created_at DESC", client_id)
+        return [dict(row) for row in rows]
 
 
 # --- Assistive Technology Models and Endpoints ---
@@ -125,7 +273,7 @@ def find_pamms_installer(device_type: str) -> Dict:
     return {"pamms_id": "PAMMS-12345", "installer_id": 9001, "name": "Local Fitters Inc."}
 
 @app.post("/api/v1/assistive-devices", response_model=AssistiveDeviceInDB)
-async def create_assistive_device_referral(device: AssistiveDevice):
+async def create_assistive_device_referral(device: AssistiveDevice, current_user: User = Depends(require_roles([UserRole.COORDINATOR, UserRole.MANAGER, UserRole.ADMIN]))):
     # In a real app, you would call the PAMMS stub here, e.g.:
     # pamms_info = find_pamms_installer(device.device_type)
     # device.pamms_id = pamms_info.get("pamms_id")
@@ -145,13 +293,13 @@ async def create_assistive_device_referral(device: AssistiveDevice):
             raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/assistive-devices", response_model=List[AssistiveDeviceInDB])
-async def get_assistive_devices():
+async def get_assistive_devices(current_user: User = Depends(require_roles([UserRole.COORDINATOR, UserRole.MANAGER, UserRole.ADMIN]))):
     async with app.state.pool.acquire() as connection:
         rows = await connection.fetch("SELECT * FROM assistive_devices ORDER BY created_at DESC")
         return [dict(row) for row in rows]
 
 @app.put("/api/v1/assistive-devices/{device_id}/status", response_model=AssistiveDeviceInDB)
-async def update_assistive_device_status(device_id: int, status_update: StatusUpdate):
+async def update_assistive_device_status(device_id: int, status_update: StatusUpdate, current_user: User = Depends(require_roles([UserRole.COORDINATOR, UserRole.MANAGER, UserRole.ADMIN]))):
     async with app.state.pool.acquire() as connection:
         try:
             row = await connection.fetchrow(
@@ -185,7 +333,7 @@ class PredictionResponse(BaseModel):
 MODEL_PATH = Path(__file__).parent.parent / "data_science/prophet_model_v1.pkl"
 
 @app.get("/api/v1/predictions", response_model=PredictionResponse)
-async def get_predictions():
+async def get_predictions(current_user: User = Depends(require_roles([UserRole.MANAGER, UserRole.ADMIN]))):
     # Load the trained model
     try:
         with open(MODEL_PATH, 'rb') as f:
@@ -259,7 +407,7 @@ class CarePlan(CarePlanBase):
     actions: List[CarePlanAction]
 
 @app.post("/api/v1/clients/{client_id}/careplans", response_model=CarePlan, status_code=201)
-async def create_care_plan_for_client(client_id: int, plan_data: CarePlanCreate):
+async def create_care_plan_for_client(client_id: int, plan_data: CarePlanCreate, current_user: User = Depends(require_roles([UserRole.ASSESSOR]))):
     async with app.state.pool.acquire() as connection:
         async with connection.transaction():
             try:
@@ -298,7 +446,7 @@ async def create_care_plan_for_client(client_id: int, plan_data: CarePlanCreate)
                 raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.get("/api/v1/clients/{client_id}/careplans", response_model=List[CarePlan])
-async def get_care_plans_for_client(client_id: int):
+async def get_care_plans_for_client(client_id: int, current_user: User = Depends(require_roles([UserRole.ASSESSOR, UserRole.MANAGER, UserRole.ADMIN]))):
     async with app.state.pool.acquire() as connection:
         plan_rows = await connection.fetch("SELECT * FROM care_plans WHERE client_id = $1 ORDER BY start_date DESC", client_id)
         if not plan_rows:
