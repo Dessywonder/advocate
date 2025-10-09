@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './App.css'; // Reusing the main CSS for simplicity
 
 const API_URL = 'http://localhost:8000';
@@ -8,6 +9,7 @@ const WORKFLOW_STATUSES = [
 ];
 
 function AssistiveTech() {
+    const navigate = useNavigate();
     const [devices, setDevices] = useState([]);
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -116,7 +118,9 @@ function AssistiveTech() {
                     {devices.map(device => (
                         <tr key={device.device_id}>
                             <td>{device.device_id}</td>
-                            <td>{device.client_id}</td>
+                            <td className="clickable" onClick={() => navigate(`/client/${device.client_id}`)}>
+                                {device.client_id}
+                            </td>
                             <td>{device.device_type}</td>
                             <td>{device.status}</td>
                             <td>{new Date(device.created_at).toLocaleString()}</td>

@@ -219,3 +219,96 @@ async def get_predictions():
         forecast=prediction_points,
         explainability=explainability
     )
+
+
+# --- Care Plan Models and Endpoints ---
+
+class CarePlanStatus(str, Enum):
+    DRAFT = "Draft"
+    ACTIVE = "Active"
+    COMPLETED = "Completed"
+    CANCELLED = "Cancelled"
+
+class CarePlanActionBase(BaseModel):
+    goal_description: str
+    action_details: Optional[str] = None
+    target_date: Optional[date] = None
+
+class CarePlanActionCreate(CarePlanActionBase):
+    pass
+
+class CarePlanAction(CarePlanActionBase):
+    action_id: int
+    care_plan_id: int
+    is_completed: bool
+
+class CarePlanBase(BaseModel):
+    start_date: date
+    end_date: Optional[date] = None
+    status: CarePlanStatus = CarePlanStatus.DRAFT
+    assigned_provider_id: Optional[int] = None
+    review_date: Optional[date] = None
+
+class CarePlanCreate(CarePlanBase):
+    actions: List[CarePlanActionCreate]
+
+class CarePlan(CarePlanBase):
+    care_plan_id: int
+    client_id: int
+    created_at: datetime
+    actions: List[CarePlanAction]
+
+@app.post("/api/v1/clients/{client_id}/careplans", response_model=CarePlan, status_code=201)
+async def create_care_plan_for_client(client_id: int, plan_data: CarePlanCreate):
+    async with app.state.pool.acquire() as connection:
+        async with connection.transaction():
+            try:
+                # Insert the main care plan record
+                plan_row = await connection.fetchrow(
+                    """
+                    INSERT INTO care_plans (client_id, start_date, end_date, status, assigned_provider_id, review_date)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    RETURNING *
+                    """,
+                    client_id, plan_data.start_date, plan_data.end_date, plan_data.status, plan_data.assigned_provider_id, plan_data.review_date
+                )
+                if not plan_row:
+                    raise HTTPException(status_code=500, detail="Failed to create care plan.")
+
+                care_plan_id = plan_row['care_plan_id']
+                actions_list = []
+
+                # Insert the associated actions
+                for action in plan_data.actions:
+                    action_row = await connection.fetchrow(
+                        """
+                        INSERT INTO care_plan_actions (care_plan_id, goal_description, action_details, target_date)
+                        VALUES ($1, $2, $3, $4)
+                        RETURNING *
+                        """,
+                        care_plan_id, action.goal_description, action.action_details, action.target_date
+                    )
+                    actions_list.append(dict(action_row))
+
+                response_data = dict(plan_row)
+                response_data['actions'] = actions_list
+                return response_data
+
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@app.get("/api/v1/clients/{client_id}/careplans", response_model=List[CarePlan])
+async def get_care_plans_for_client(client_id: int):
+    async with app.state.pool.acquire() as connection:
+        plan_rows = await connection.fetch("SELECT * FROM care_plans WHERE client_id = $1 ORDER BY start_date DESC", client_id)
+        if not plan_rows:
+            return []
+
+        full_plans = []
+        for plan_row in plan_rows:
+            actions = await connection.fetch("SELECT * FROM care_plan_actions WHERE care_plan_id = $1", plan_row['care_plan_id'])
+            plan_dict = dict(plan_row)
+            plan_dict['actions'] = [dict(action) for action in actions]
+            full_plans.append(plan_dict)
+
+        return full_plans

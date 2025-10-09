@@ -45,3 +45,25 @@ CREATE TABLE assistive_devices (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TYPE care_plan_status AS ENUM ('Draft', 'Active', 'Completed', 'Cancelled');
+
+CREATE TABLE care_plans (
+    care_plan_id SERIAL PRIMARY KEY,
+    client_id INTEGER REFERENCES clients(client_id),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    status care_plan_status NOT NULL DEFAULT 'Draft',
+    assigned_provider_id INTEGER,
+    review_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE care_plan_actions (
+    action_id SERIAL PRIMARY KEY,
+    care_plan_id INTEGER REFERENCES care_plans(care_plan_id) ON DELETE CASCADE,
+    goal_description TEXT NOT NULL,
+    action_details TEXT,
+    is_completed BOOLEAN DEFAULT FALSE,
+    target_date DATE
+);

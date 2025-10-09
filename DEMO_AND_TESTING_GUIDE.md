@@ -114,11 +114,11 @@ This test verifies the functionality of the assistive technology referral and wo
 ### Step 1: Navigate to the Assistive Tech Page
 
 1.  **Open the Web Viewer:**
-    *   In your browser, ensure the Care Management Platform is open at `http://localhost:3000`.
+    *   In your browser, go to `http://localhost:3000`. The Dashboard should be visible.
 
-2.  **Switch Views:**
-    *   In the header, click the **"Assistive Tech"** button.
-    *   The view should change to the "Assistive Technology Referrals" page. The table will initially be empty.
+2.  **Navigate to Assistive Tech:**
+    *   In the header, click the **"Assistive Tech"** link.
+    *   The URL should change to `http://localhost:3000/assistive-tech` and the "Assistive Technology Referrals" page will be displayed. The table will initially be empty.
 
 ### Step 2: Create a New Device Referral
 
@@ -193,11 +193,54 @@ This test verifies the data pipeline, model training, and forecasting dashboard.
     *   Ensure the backend and web application are running as described in Part 1.
 
 2.  **Navigate to the Dashboard:**
-    *   In your browser, go to `http://localhost:3000`.
-    *   The application should now default to the "Dashboard" view. If not, click the **"Dashboard"** button in the header.
+    *   In your browser, navigate to `http://localhost:3000`.
+    *   The application should load the "Dashboard" view by default at the root URL.
 
 3.  **Verify the Forecast:**
     *   The page should display a line chart titled "12-Week Assessment Forecast".
     *   The chart will show the predicted number of assessments over the next 12 weeks.
     *   A shaded area around the line indicates the confidence interval of the forecast.
     *   The model version and a summary of its features should be displayed above the chart.
+
+---
+
+## Part 5: Case Management & Care Plan Test
+
+This test verifies the creation and display of client-specific care plans. It assumes you have already completed Part 1 and the applications are running.
+
+### Step 1: Navigate to a Client's Detail Page
+
+1.  **Go to the Assessments View:**
+    *   In the web app, navigate to `http://localhost:3000/assessments` or click the **"Assessments"** link in the header.
+    *   You should see the list of synced assessments from Part 2.
+
+2.  **Select a Client:**
+    *   In the "Client ID" column, click on the ID of a client (e.g., `101`).
+    *   The URL will change to `http://localhost:3000/client/101`, and you will be on the "Client Details" page for that client.
+
+### Step 2: Create a New Care Plan
+
+1.  **Locate the Care Plan Section:**
+    *   On the Client Details page, scroll down to the "Create New Care Plan" form.
+
+2.  **Fill Out the Form:**
+    *   **Start Date:** Leave as the default (today's date).
+    *   **Status:** Leave as "Draft".
+    *   **Goals/Actions:**
+        *   In the first input box, type: `Improve mobility within the home.`
+        *   Click the **"Add Action"** button.
+        *   In the second input box that appears, type: `Schedule weekly physical therapy sessions.`
+        *   Click **"Add Action"** again.
+        *   In the third input box, type: `Install grab bars in the bathroom.`
+
+3.  **Save the Care Plan:**
+    *   Click the **"Save Care Plan"** button.
+
+### Step 3: Verify the Care Plan
+
+1.  **Check the Display:**
+    *   The form should clear, and the "Existing Care Plans" section above it should now display the new care plan.
+    *   You should see the Plan ID, Status, and Start Date.
+    *   Below that, you should see the three goals/actions you entered, listed as bullet points.
+
+This completes the test of the care plan functionality, demonstrating the ability to create and view a multi-action care plan for a specific client.
